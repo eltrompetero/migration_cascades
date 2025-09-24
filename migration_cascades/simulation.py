@@ -4,41 +4,49 @@ from numba import njit
 
 
 @njit
-def flip(J, field, state, n1_res):
-    """Flip function for spin equilibration based on energy considerations."""
-    # Simple Ising-like flip probability based on field and coupling
-    energy_diff = 2 * field * (2 * state - 1)  # energy difference for flip
-    # Add coupling contribution (mean field approximation)
-    coupling_contrib = 2 * J * (2 * state - 1) * (2 * n1_res - 1)
-    total_energy_diff = energy_diff + coupling_contrib
-    
-    if total_energy_diff <= 0:
-        return True
+def flip(J, h, s, n1):
+    """
+    Parameters
+    ----------
+    s : int
+        Spin value.
+    h : float
+        Spin field.
+    h1 : int
+        No. of up spins in same reservoir.
+    """
+    if s==0:
+        dE = -J * n1 - h
     else:
-        return np.random.rand() < np.exp(-total_energy_diff)
-
+        dE = J * (n1-1) + h
+    if dE < 0 or np.random.rand() < np.exp(-dE):
+        return True
+    return False
 
 @njit
-def rand_choice(options, probabilities):
-    """Random choice from options with given probabilities."""
-    cumsum = np.cumsum(probabilities)
-    rand_val = np.random.rand()
-    for i in range(len(cumsum)):
-        if rand_val <= cumsum[i]:
-            return options[i]
-    return options[-1]
+def rand_choice(arr, prob):
+    """
+    :param arr: A 1D numpy array of values to sample from.
+    :param prob: A 1D numpy array of probabilities for the given samples.
+    :return: A random sample from the given array with a given probability.
+    """
+    return arr[np.searchsorted(np.cumsum(prob), np.random.random(), side="right")]
 
-
+@njit
 def m_per_reservoir(S, R):
-    """Calculate magnetization per reservoir."""
-    magnetizations = np.zeros(R)
+    m = np.zeros(R)  # mean magnetization
     for r in range(R):
-        reservoir_spins = S[S[:, 2] == r, 1]
-        if len(reservoir_spins) > 0:
-            magnetizations[r] = np.mean(2 * reservoir_spins - 1)  # Convert 0,1 to -1,1
-    return magnetizations
+        ix = S[:,2]==r
+        if ix.any():
+            m[r] = S[:,1][ix].mean()
+        else:
+            m[r] = np.nan
+    return m
 
 
+# ======= #
+# Classes # 
+# ======= #
 class CoupledReservoirs:
     """
     A class representing a system of coupled spin reservoirs with transfer dynamics.
@@ -107,7 +115,7 @@ class CoupledReservoirs:
         self.S[:, 1] = self.rng.choice([0, 1], size=self.n0 * self.R)
         self.S[:, 2] = list(chain.from_iterable([list(range(self.R)) for i in range(self.n0)]))
         
-        # Set asymmetric starting conditions for reservoirs
+        # Set random magnetized starting conditions for reservoirs
         for r in range(self.R):
             self.S[:, 1][self.S[:, 2] == r] = self.rng.choice([0, 1])
         
@@ -240,6 +248,7 @@ class CoupledReservoirs:
         np.fill_diagonal(self.L, 0.)
         self.p_L = self.dt * self.L
         self.p_L[np.diag_indices_from(self.L)] = 1 - self.p_L.sum(0)
+#end CoupledReservoirs
 
 
 # Example usage
