@@ -131,6 +131,15 @@ class CoupledReservoirs:
             self.n1_res[r] += self.S[:, 1][self.S[:, 2] == r].sum()
         
         self.res_numbers = np.arange(self.R)
+
+    def check_dt(self):
+        """
+        Check if the time step dt is appropriate for the rates.
+        
+        Raises a ValueError if dt is too large.
+        """
+        if self.n0 * self.R * self.dt * (self.g + self.el) > 1:
+            raise ValueError("dt is too large for the given rates. Reduce dt.")
     
     def _loop_step(self, runtime):
         """
@@ -182,7 +191,6 @@ class CoupledReservoirs:
                     S[rand_spin_ix, 2] = dest_ix
             
             total_t += dt
-        return S, n1_res, n_res
     
     def run(self, n_samples=200, sample_dt=5.0):
         """
@@ -207,7 +215,7 @@ class CoupledReservoirs:
         m_t[0] = m_per_reservoir(self.S, self.R)
         
         for i in range(n_samples):
-            self.S, self.n1_res, self.n_res = self._loop_step(sample_dt)
+            self._loop_step(sample_dt)
             m_t[i + 1] = m_per_reservoir(self.S, self.R)
         
         return m_t
