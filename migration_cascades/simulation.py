@@ -43,6 +43,27 @@ def m_per_reservoir(S, R):
             m[r] = np.nan
     return m
 
+@njit
+def mp_mm_per_reservoir(S, R):
+    mp = np.zeros(R)  # m+ per reservoir
+    mm = np.zeros(R)  # m- per reservoir
+    hp = S[:,0].max()
+    hm = S[:,0].min()
+    
+    for r in range(R):
+        ix = (S[:,2]==r) & (S[:,0]==hp)
+        if ix.any():
+            mp[r] = S[:,1][ix].mean()
+        else:
+            mp[r] = np.nan
+            
+        ix = (S[:,2]==r) & (S[:,0]==hm)
+        if ix.any():
+            mm[r] = S[:,1][ix].mean()
+        else:
+            mm[r] = np.nan
+    return mp, mm
+
 
 # ======= #
 # Classes # 
@@ -211,14 +232,19 @@ class CoupledReservoirs:
         if self.S is None:
             raise RuntimeError("System not initialized. Call setup() first.")
         
-        m_t = np.zeros((n_samples + 1, self.R))
-        m_t[0] = m_per_reservoir(self.S, self.R)
+        #m_t = np.zeros((n_samples + 1, self.R))
+        #m_t[0] = m_per_reservoir(self.S, self.R)
+        mp_t = np.zeros((n_samples+1, self.R))
+        mm_t = np.zeros((n_samples+1, self.R))
+        mp_t[0], mm_t[0] = mp_mm_per_reservoir(self.S, self.R)
+
         
         for i in range(n_samples):
             self._loop_step(sample_dt)
-            m_t[i + 1] = m_per_reservoir(self.S, self.R)
+            #m_t[i + 1] = m_per_reservoir(self.S, self.R)
+            mp_t[i+1], mm_t[i+1] = mp_mm_per_reservoir(self.S, self.R)
         
-        return m_t
+        return mp_t, mm_t
     
     def get_state(self):
         """
