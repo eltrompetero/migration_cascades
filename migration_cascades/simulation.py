@@ -147,12 +147,12 @@ class CoupledReservoirs:
                                         size=self.n0 * self.R)
         elif h_initial_condition == 'balanced':
             # fix exact 50-50 ratios of h+ and h-
-            self.S[:,0] = self.rng.permutation([self.h_mu-self.h_del]*(self.n0*self.R//2) +
-                                               [self.h_mu+self.h_del]*(self.n0*self.R//2))
+            self.S[:,0] = self.rng.permutation([self.h_mu+self.h_del]*(self.n0*self.R//2) +
+                                               [self.h_mu-self.h_del]*(self.n0*self.R//2))
         elif type(h_initial_condition) is tuple and len(h_initial_condition) == 2:
             assert sum(h_initial_condition) == 1.0, "h_initial_condition fractions must sum to 1."
-            self.S[:,0] = self.rng.permutation([self.h_mu-self.h_del]*int(self.n0*self.R*h_initial_condition[0]) +
-                                               [self.h_mu+self.h_del]*int(self.n0*self.R*h_initial_condition[1]))
+            self.S[:,0] = self.rng.permutation([self.h_mu+self.h_del]*int(self.n0*self.R*h_initial_condition[0]) +
+                                               [self.h_mu-self.h_del]*int(self.n0*self.R*h_initial_condition[1]))
         else:
             raise ValueError("Invalid h_initial_condition. Choose 'random' or 'balanced'.")
 
