@@ -130,6 +130,7 @@ class CoupledReservoirs:
         h_initial_condition : str
             'random' for random initial spin states and fields,
             'balanced' for balanced initial conditions in each reservoir.
+            tuple of floats for fraction of h+ and h- spins (e.g., (0.7, 0.3)).
         spins_initial_condition : str
             'random' for random initial spin states,
             'asymmetric' for each reservoir to be initialized with all spins up or down.
@@ -148,15 +149,19 @@ class CoupledReservoirs:
             # fix exact 50-50 ratios of h+ and h-
             self.S[:,0] = self.rng.permutation([self.h_mu-self.h_del]*(self.n0*self.R//2) +
                                                [self.h_mu+self.h_del]*(self.n0*self.R//2))
+        elif type(h_initial_condition) is tuple and len(h_initial_condition) == 2:
+            assert sum(h_initial_condition) == 1.0, "h_initial_condition fractions must sum to 1."
+            self.S[:,0] = self.rng.permutation([self.h_mu-self.h_del]*int(self.n0*self.R*h_initial_condition[0]) +
+                                               [self.h_mu+self.h_del]*int(self.n0*self.R*h_initial_condition[1]))
         else:
             raise ValueError("Invalid h_initial_condition. Choose 'random' or 'balanced'.")
 
         if spins_initial_condition == 'random':
             self.S[:, 1] = self.rng.choice([0, 1], size=self.n0 * self.R)
         elif spins_initial_condition == 'asymmetric':
-            # strong asymmetry in starting conditions for reservoirs
+            # strong asymmetry in starting conditions for reservoirs, iterating between 0 and 1
             for r in range(self.R):
-                self.S[:,1][self.S[:,2]==r] = self.rng.choice([0,1])
+                self.S[:,1][self.S[:,2]==r] = [0,1][r%2]
         else:
             raise ValueError("Invalid spins_initial_condition. Choose 'random' or 'asymmetric'.")
 
