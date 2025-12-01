@@ -121,25 +121,45 @@ class CoupledReservoirs:
         self.n1_res = None
         self.res_numbers = None
         
-    def setup(self):
+    def setup(self, h_initial_condition='random', spins_initial_condition='random'):
         """
         Set up the initial state of the system.
+
+        Parameters
+        ----------
+        h_initial_condition : str
+            'random' for random initial spin states and fields,
+            'balanced' for balanced initial conditions in each reservoir.
+        spins_initial_condition : str
+            'random' for random initial spin states,
+            'asymmetric' for each reservoir to be initialized with all spins up or down.
         """
         # Initialize transfer rate matrix
         self.L = np.zeros((self.R, self.R)) + self.el
         np.fill_diagonal(self.L, 0.)
         
-        # Initialize spin array: col0: field, col1: state, col2: reservoir
+        # Initialize system specification: col0: field, col1: state, col2: reservoir
         self.S = np.zeros((self.n0 * self.R, 3))
-        self.S[:, 0] = self.rng.choice([self.h_mu - self.h_del, self.h_mu + self.h_del], 
-                                 size=self.n0 * self.R)
-        self.S[:, 1] = self.rng.choice([0, 1], size=self.n0 * self.R)
         self.S[:, 2] = list(chain.from_iterable([list(range(self.R)) for i in range(self.n0)]))
-        
-        # Set random magnetized starting conditions for reservoirs
-        for r in range(self.R):
-            self.S[:, 1][self.S[:, 2] == r] = self.rng.choice([0, 1])
-        
+        if h_initial_condition == 'random':
+            self.S[:, 0] = self.rng.choice([self.h_mu - self.h_del, self.h_mu + self.h_del], 
+                                        size=self.n0 * self.R)
+        elif h_initial_condition == 'balanced':
+            # fix exact 50-50 ratios of h+ and h-
+            self.S[:,0] = self.rng.permutation([self.h_mu-self.h_del]*(self.n0*self.R//2) +
+                                               [self.h_mu+self.h_del]*(self.n0*self.R//2))
+        else:
+            raise ValueError("Invalid h_initial_condition. Choose 'random' or 'balanced'.")
+
+        if spins_initial_condition == 'random':
+            self.S[:, 1] = self.rng.choice([0, 1], size=self.n0 * self.R)
+        elif spins_initial_condition == 'asymmetric':
+            # strong asymmetry in starting conditions for reservoirs
+            for r in range(self.R):
+                self.S[:,1][self.S[:,2]==r] = self.rng.choice([0,1])
+        else:
+            raise ValueError("Invalid spins_initial_condition. Choose 'random' or 'asymmetric'.")
+
         # Calculate transition probabilities given dt
         self.p_eq = self.dt * self.g
         self.p_L = self.dt * self.L
@@ -206,10 +226,10 @@ class CoupledReservoirs:
                     if S[rand_spin_ix, 1]:
                         n1_res[origin_res] -= 1
                         n1_res[dest_ix] += 1
-                    n_res[origin_res] -= 1
-                    n_res[dest_ix] += 1
-                    # Update spin's location
-                    S[rand_spin_ix, 2] = dest_ix
+                        n_res[origin_res] -= 1
+                        n_res[dest_ix] += 1
+                        # Update spin's location
+                        S[rand_spin_ix, 2] = dest_ix
             
             total_t += dt
     
@@ -238,7 +258,6 @@ class CoupledReservoirs:
         mm_t = np.zeros((n_samples+1, self.R))
         mp_t[0], mm_t[0] = mp_mm_per_reservoir(self.S, self.R)
 
-        
         for i in range(n_samples):
             self._loop_step(sample_dt)
             #m_t[i + 1] = m_per_reservoir(self.S, self.R)
